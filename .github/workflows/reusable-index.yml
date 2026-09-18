@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 20
-          ref: \${{ github.ref_name }}
+          ref: ${{ github.ref_name }}
 
       - name: Fetch Repo Brain indexer
         shell: bash
@@ -37,7 +37,7 @@ jobs:
           test -s .ai/brain/summary.md
 
       - name: Commit Repo Brain context
-        if: \${{ inputs.commit_changes }}
+        if: ${{ inputs.commit_changes }}
         shell: bash
         run: |
           git add -A .ai/brain
@@ -47,4 +47,4 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "chore(ai): refresh repo brain"
-          git push origin "HEAD:\${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
