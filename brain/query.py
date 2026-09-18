@@ -64,6 +64,12 @@ def dependencies(name):
     data = load("symbol-dependencies.json", {"symbols": {}})
     return {"symbol": name, "data": (data.get("symbols") or {}).get(name, {})}
 
+def search_token(token):
+    token = token.lower()
+    shard = token[0] if token and token[0].isalnum() else "_"
+    data = load(f"search-shards/{shard}.json", {"tokens": {}})
+    return {"token": token, "files": (data.get("tokens") or {}).get(token, [])}
+
 def semantic_status():
     plan = load("semantic-plan.json", {})
     index = load("semantic-index.json", {})
@@ -85,7 +91,7 @@ def packet(name):
 
 def main():
     if len(sys.argv) < 2:
-        raise SystemExit("Usage: query.py symbol <name> | references <name> | dependencies <name> | semantic-status | impact | tests | route | session | packet <name>")
+        raise SystemExit("Usage: query.py symbol <name> | references <name> | dependencies <name> | search <token> | semantic-status | impact | tests | route | session | packet <name>")
     cmd = sys.argv[1]
     if cmd == "symbol":
         if len(sys.argv) < 3:
@@ -99,6 +105,10 @@ def main():
         if len(sys.argv) < 3:
             raise SystemExit("Usage: query.py dependencies <name>")
         result = dependencies(sys.argv[2])
+    elif cmd == "search":
+        if len(sys.argv) < 3:
+            raise SystemExit("Usage: query.py search <token>")
+        result = search_token(sys.argv[2])
     elif cmd == "semantic-status":
         result = semantic_status()
     elif cmd == "impact":
