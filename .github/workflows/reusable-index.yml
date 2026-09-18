@@ -55,10 +55,23 @@ jobs:
         run: |
           python3 /tmp/repo-brain-merge-outline.py
           rm -f .ai/brain/ast-grep-outline.raw.json
-          test -s .ai/brain/capabilities.json
-          test -s .ai/brain/ast-routing.json
-          test -d .ai/brain/ast-symbols
-          test -d .ai/brain/file-outlines
+          echo "Repo Brain AST files:"
+          find .ai/brain -maxdepth 2 -type f -printf '%p %s bytes\n' | sort
+          python3 - <<'PY'
+          from pathlib import Path
+          required_files = [
+              Path(".ai/brain/capabilities.json"),
+              Path(".ai/brain/ast-routing.json"),
+          ]
+          required_dirs = [
+              Path(".ai/brain/ast-symbols"),
+              Path(".ai/brain/file-outlines"),
+          ]
+          missing = [str(p) for p in required_files if not p.is_file() or p.stat().st_size == 0]
+          missing += [str(p) for p in required_dirs if not p.is_dir()]
+          if missing:
+              raise SystemExit("Missing Repo Brain AST outputs: " + ", ".join(missing))
+          PY
 
       - name: Commit Repo Brain context
         if: ${{ inputs.commit_changes }}
