@@ -53,7 +53,30 @@ jobs:
         continue-on-error: true
         run: |
           npm install -g @ast-grep/cli@0.44.0
-          ast-grep outline . --items all --view expanded --json=compact > .ai/brain/ast-grep-outline.raw.json
+          mode="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path(".ai/brain/incremental-state.json")
+          print(json.loads(p.read_text()).get("mode","full"))
+          PY
+          )"
+          if [ "$mode" = "incremental" ]; then
+            mapfile -t changed < <(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path(".ai/brain/impact.json").read_text())
+          for path in data.get("changed_source_files", []):
+              print(path)
+          PY
+            )
+            if [ "${#changed[@]}" -eq 0 ]; then
+              printf '[]\n' > .ai/brain/ast-grep-outline.raw.json
+            else
+              ast-grep outline "${changed[@]}" --items all --view expanded --json=compact > .ai/brain/ast-grep-outline.raw.json
+            fi
+          else
+            ast-grep outline . --items all --view expanded --json=compact > .ai/brain/ast-grep-outline.raw.json
+          fi
 
       - name: Compact ast-grep outline
         shell: bash
