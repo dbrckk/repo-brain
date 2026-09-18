@@ -127,6 +127,17 @@ jobs:
           test -d .ai/brain/graph-shards
           test -s .ai/brain/architecture.mmd
 
+      - name: Generate persistent search shards
+        shell: bash
+        run: |
+          python3 .repo-brain-tool/brain/search_index.py
+          test -s .ai/brain/search-manifest.json
+          test -d .ai/brain/search-shards
+          if [ ! -s .ai/brain/query-cache.json ]; then
+            printf '{"schema_version":1,"generated_by":"dbrckk/repo-brain-query-cache-v1","entries":{}}\n' > .ai/brain/query-cache.json
+          fi
+          test -s .ai/brain/query-cache.json
+
       - name: Precompute v6 hotset and context packets
         shell: bash
         run: |
