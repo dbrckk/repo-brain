@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -72,15 +73,66 @@ def score_paths() -> dict[str, dict[str, Any]]:
             if path in hot_seeds:
                 add(path, 5, "symbol-indexed")
 
+    useful = [p for p in scores if not is_noise(p)]
+    if len(useful) < 8:
+        for path in recent_project_files():
+            if not is_noise(path):
+                add(path, 60, "recent-project-state")
+
+    architecture = Path(".ai/architecture.json")
+    if architecture.is_file():
+        try:
+            data = json.loads(architecture.read_text(encoding="utf-8"))
+            for path in data.get("entrypoint_candidates", []) or []:
+                if isinstance(path, str) and not is_noise(path):
+                    add(path, 40, "entrypoint")
+        except Exception:
+            pass
+
     return scores
 
 def area_for(path: str) -> str:
     parts = [p for p in Path(path).parts if p not in (".", "")]
     if not parts:
         return "root"
-    if parts[0] in {"src", "app", "lib", "packages", "modules"} and len(parts) > 1:
-        return "-".join(parts[:2]).replace("_", "-").lower()
-    return parts[0].replace("_", "-").lower()
+    first = parts[0].lstrip(".") or "root"
+    if first in {"src", "app", "lib", "packages", "modules"} and len(parts) > 1:
+        return "-".join([first, parts[1]]).replace("_", "-").lower()
+    return first.replace("_", "-").lower()
+
+def is_noise(path: str) -> bool:
+    p = path.lower()
+    noise_prefixes = (
+        ".ai/", ".github/", ".circleci/", ".serena/", "art/", "marketing/",
+        "docs/", "build/", "dist/", "vendor/", "node_modules/"
+    )
+    noise_suffixes = (
+        ".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".ico",
+        ".lock", ".map"
+    )
+    return p.startswith(noise_prefixes) or p.endswith(noise_suffixes) or p == ".repo-standards.yml"
+
+def recent_project_files() -> list[str]:
+    state = Path(".ai/project-state.md")
+    if not state.is_file():
+        return []
+    try:
+        text = state.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    files = []
+    in_recent = False
+    for line in text.splitlines():
+        if line.strip() == "### Recently changed files":
+            in_recent = True
+            continue
+        if in_recent and line.startswith("### "):
+            break
+        if in_recent:
+            m = re.match(r"- `(.+?)`", line.strip())
+            if m:
+                files.append(m.group(1))
+    return files
 
 def digest(path: str) -> dict[str, Any] | None:
     p = Path(path)
