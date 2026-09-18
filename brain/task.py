@@ -13,6 +13,7 @@ AI = Path(".ai")
 SESSION = AI / "session-state.json"
 ROUTE = BRAIN / "task-route.json"
 CACHE = BRAIN / "hash-cache.json"
+QUERY_CACHE = BRAIN / "query-cache.json"
 
 STOP = {
     "the","a","an","and","or","to","of","in","on","for","with","this","that",
@@ -72,7 +73,60 @@ def collect_candidates() -> dict[str, dict[str, Any]]:
 
     return candidates
 
+def task_fingerprint(task: str) -> str:
+    parts = [" ".join(terms(task))]
+    for name in [
+        "incremental-state.json",
+        "graph-index.json",
+        "search-manifest.json",
+        "semantic-index.json",
+        "hash-cache.json",
+    ]:
+        p = BRAIN / name
+        if p.is_file():
+            try:
+                parts.append(hashlib.sha256(p.read_bytes()).hexdigest())
+            except OSError:
+                pass
+    if SESSION.is_file():
+        try:
+            parts.append(hashlib.sha256(SESSION.read_bytes()).hexdigest())
+        except OSError:
+            pass
+    return hashlib.sha256("\n".join(parts).encode()).hexdigest()
+
+def cached_route(task: str) -> dict[str, Any] | None:
+    data = read_json(QUERY_CACHE, {"entries": {}})
+    fp = task_fingerprint(task)
+    entry = (data.get("entries") or {}).get(fp)
+    if not entry:
+        return None
+    route = entry.get("route")
+    if isinstance(route, dict):
+        out = dict(route)
+        out["cache"] = {"hit": True, "fingerprint": fp}
+        return out
+    return None
+
+def save_cached_route(task: str, result: dict[str, Any]) -> None:
+    data = read_json(QUERY_CACHE, {"schema_version": 1, "entries": {}})
+    entries = dict(data.get("entries") or {})
+    fp = task_fingerprint(task)
+    stored = dict(result)
+    stored.pop("cache", None)
+    entries[fp] = {"task": task, "route": stored}
+    if len(entries) > 128:
+        entries = dict(list(entries.items())[-128:])
+    write_json(QUERY_CACHE, {
+        "schema_version": 1,
+        "generated_by": "dbrckk/repo-brain-query-cache-v1",
+        "entries": entries,
+    })
+
 def route(task: str, limit: int = 12) -> dict[str, Any]:
+    cached = cached_route(task)
+    if cached is not None:
+        return cached
     q = terms(task)
     candidates = collect_candidates()
     ranked = []
@@ -108,7 +162,9 @@ def route(task: str, limit: int = 12) -> dict[str, Any]:
         "files": ranked[:limit],
         "fallback": "Use architecture/segmented maps, then targeted source search if files are insufficient.",
     }
+    result["cache"] = {"hit": False, "fingerprint": task_fingerprint(task)}
     write_json(ROUTE, result)
+    save_cached_route(task, result)
     return result
 
 def hash_file(path: Path) -> str:
