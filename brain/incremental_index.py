@@ -261,8 +261,26 @@ edges = []
 seen_edges = set()
 for source, deps in sorted(imports.items()):
     for dep in sorted(deps):
-        root = dep.split(".")[0].split("/")[0]
-        for target in module_to_files.get(root, [])[:4]:
+        clean = dep.rstrip(".*")
+        parts = [p for p in re.split(r"[./:]", clean) if p]
+        keys = []
+        if parts:
+            # Python/JS often resolve from the first module segment.
+            keys.append(parts[0])
+            # Java/Kotlin imports are package-qualified; the final class/object
+            # segment is usually the local filename stem.
+            keys.append(parts[-1])
+            # Static/member imports may end in a method/field name; try owner.
+            if len(parts) >= 2:
+                keys.append(parts[-2])
+        targets = []
+        seen_targets = set()
+        for key in keys:
+            for target in module_to_files.get(key, [])[:8]:
+                if target not in seen_targets:
+                    seen_targets.add(target)
+                    targets.append(target)
+        for target in targets[:8]:
             if source == target:
                 continue
             edge = (source, target, "imports")
