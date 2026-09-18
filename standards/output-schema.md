@@ -1,27 +1,28 @@
 # Output schema
 
-Repo Brain writes only under `.ai/brain/`.
+Repo Brain writes under `.ai/brain/`.
 
 ## Incremental state
-
-- `incremental-state.json`: previous/current indexing state, mode, and reparsed-file count.
-- `impact.json`: changed files, impacted files/symbols, and selected test candidates.
-- `selected-tests.json`: targeted test files and candidate validation commands.
+- `incremental-state.json`
+- `impact.json`
+- `selected-tests.json`
 
 ## Portable layer
+- `index.json`
+- `lookup.json`
+- `symbols.json`
+- `imports.json`
+- `code-graph.json`
+- `summary.md`
 
-- `index.json`: compact counts, languages, graph size, and incremental/full mode.
-- `lookup.json`: portable symbol-to-file lookup.
-- `symbols.json`: portable symbol metadata.
-- `imports.json`: imports grouped by source file.
-- `code-graph.json`: lightweight inferred internal import edges.
-- `summary.md`: smallest human/agent-readable entrypoint.
+## Incremental AST
+- `capabilities.json`: includes `ast_index_mode` and `ast_reparsed_files`.
+- `ast-routing.json`
+- `ast-symbols/<initial>.json`
+- `file-outlines/<root>.json`
 
-## ast-grep enrichment
+## Changed-symbol analysis
+- `references.json`: lexical word occurrences for changed symbol definitions.
+- `symbol-dependencies.json`: known symbols referenced inside a changed symbol's bounded source/AST range.
 
-- `capabilities.json`: declares whether ast-grep Outline succeeded.
-- `ast-routing.json`: explains shard routing.
-- `ast-symbols/<initial>.json`: exact symbol/member ranges, sharded by lowercase first character.
-- `file-outlines/<root>.json`: compact AST structure grouped by first path component.
-
-Repo Brain relationships and test selection are static heuristics. They must be verified before high-risk or release-critical changes.
+References and dependencies are static heuristics and must be source-verified.
