@@ -109,6 +109,14 @@ jobs:
           test -s .ai/brain/references.json
           test -s .ai/brain/symbol-dependencies.json
 
+      - name: Generate semantic routing plan
+        shell: bash
+        run: |
+          python3 .repo-brain-tool/brain/semantic_plan.py
+          python3 .repo-brain-tool/brain/scip_compact.py
+          test -s .ai/brain/semantic-plan.json
+          test -s .ai/brain/semantic-index.json
+
       - name: Generate compact graph routing
         shell: bash
         run: |
