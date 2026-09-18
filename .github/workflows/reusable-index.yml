@@ -25,16 +25,19 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Fetch Repo Brain indexer
-        shell: bash
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/dbrckk/repo-brain/v3/brain/index_repo.py -o /tmp/repo-brain-index.py
-          curl -fsSL https://raw.githubusercontent.com/dbrckk/repo-brain/v3/brain/merge_ast_grep.py -o /tmp/repo-brain-merge-outline.py
+      - name: Checkout Repo Brain tool
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: dbrckk/repo-brain
+          ref: v3
+          path: .repo-brain-tool
+          persist-credentials: false
+          fetch-depth: 1
 
       - name: Generate symbol intelligence
         shell: bash
         run: |
-          python3 /tmp/repo-brain-index.py
+          python3 .repo-brain-tool/brain/index_repo.py
           test -s .ai/brain/index.json
           test -s .ai/brain/symbols.json
           test -s .ai/brain/imports.json
@@ -53,7 +56,7 @@ jobs:
         shell: bash
         if: always()
         run: |
-          python3 /tmp/repo-brain-merge-outline.py
+          python3 .repo-brain-tool/brain/merge_ast_grep.py
           rm -f .ai/brain/ast-grep-outline.raw.json
           echo "Repo Brain AST files:"
           find .ai/brain -maxdepth 2 -type f -printf '%p %s bytes\n' | sort
