@@ -2,32 +2,58 @@
 from __future__ import annotations
 
 import json
+import re
+import shutil
 from collections import defaultdict
 from pathlib import Path
 
 BRAIN = Path(".ai/brain")
 RAW = BRAIN / "ast-grep-outline.raw.json"
-AST_LOOKUP = BRAIN / "ast-lookup.json"
-FILE_OUTLINE = BRAIN / "file-outline.json"
 CAP = BRAIN / "capabilities.json"
-LEGACY_OUTLINE = BRAIN / "outline.json"
+ROUTING = BRAIN / "ast-routing.json"
+SYMBOL_DIR = BRAIN / "ast-symbols"
+FILE_DIR = BRAIN / "file-outlines"
 
-if LEGACY_OUTLINE.exists():
-    LEGACY_OUTLINE.unlink()
+for legacy in (BRAIN / "outline.json", BRAIN / "ast-lookup.json", BRAIN / "file-outline.json"):
+    if legacy.exists():
+        legacy.unlink()
+for directory in (SYMBOL_DIR, FILE_DIR):
+    if directory.exists():
+        shutil.rmtree(directory)
+    directory.mkdir(parents=True, exist_ok=True)
 
 capabilities = {
-    "schema_version": 2,
+    "schema_version": 3,
     "generated_by": "dbrckk/repo-brain",
     "portable_index": True,
     "ast_grep_outline": False,
     "ast_grep_outline_files": 0,
     "ast_grep_outline_items": 0,
     "ast_grep_member_items": 0,
+    "ast_symbol_shards": 0,
+    "ast_file_outline_shards": 0,
 }
 
+def symbol_shard(name: str) -> str:
+    first = (name or "_")[0].lower()
+    return first if first.isalnum() else "_"
+
+def safe_slug(value: str) -> str:
+    value = re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip("-")
+    return value or "root"
+
+def write_json(path: Path, value):
+    path.write_text(json.dumps(value, separators=(",", ":")) + "\n")
+
 def write_empty():
-    AST_LOOKUP.write_text('{"symbols":{}}\n')
-    FILE_OUTLINE.write_text('{"files":{}}\n')
+    write_json(ROUTING, {
+        "schema_version": 1,
+        "available": False,
+        "symbol_shard_pattern": ".ai/brain/ast-symbols/<initial>.json",
+        "file_outline_pattern": ".ai/brain/file-outlines/<root>.json",
+    })
+    write_json(SYMBOL_DIR / "_.json", {"symbols": {}})
+    write_json(FILE_DIR / "root.json", {"files": {}})
     CAP.write_text(json.dumps(capabilities, indent=2) + "\n")
 
 if not RAW.exists() or RAW.stat().st_size == 0:
@@ -46,7 +72,7 @@ if not isinstance(data, list):
     data = []
 
 lookup = defaultdict(list)
-file_outline = {}
+file_outlines = defaultdict(dict)
 top_count = 0
 member_count = 0
 
@@ -78,12 +104,7 @@ for obj in data:
             continue
         top_count += 1
 
-        base = {
-            "file": path,
-            "type": typ,
-            "start": start,
-            "end": end,
-        }
+        base = {"file": path, "type": typ, "start": start, "end": end}
         if language:
             base["language"] = language
         if item.get("isExported") is not None:
@@ -98,8 +119,9 @@ for obj in data:
                 continue
             mstart, mend = loc(member)
             member_count += 1
+            member_name = member["name"]
             m = {
-                "name": member.get("name"),
+                "name": member_name,
                 "type": member.get("symbolType"),
                 "start": mstart,
                 "end": mend,
@@ -115,43 +137,57 @@ for obj in data:
             }
             if language:
                 ment["language"] = language
-            lookup[member["name"]].append({k:v for k,v in ment.items() if v is not None})
+            lookup[member_name].append({k:v for k,v in ment.items() if v is not None})
 
-        item_compact = {
-            "name": name,
-            "type": typ,
-            "start": start,
-            "end": end,
-        }
+        compact = {"name": name, "type": typ, "start": start, "end": end}
         if members:
-            item_compact["members"] = members
-        compact_items.append({k:v for k,v in item_compact.items() if v is not None})
+            compact["members"] = members
+        compact_items.append({k:v for k,v in compact.items() if v is not None})
 
     if compact_items:
-        file_outline[path] = {
+        root = path.split("/", 1)[0] if "/" in path else "root"
+        file_outlines[root][path] = {
             "language": language,
             "items": compact_items,
         }
 
-capabilities["ast_grep_outline"] = bool(file_outline)
-capabilities["ast_grep_outline_files"] = len(file_outline)
+symbol_buckets = defaultdict(dict)
+for name, entries in sorted(lookup.items()):
+    symbol_buckets[symbol_shard(name)][name] = entries[:30]
+
+for shard, symbols in sorted(symbol_buckets.items()):
+    write_json(SYMBOL_DIR / (safe_slug(shard) + ".json"), {
+        "schema_version": 1,
+        "symbols": symbols,
+    })
+
+for root, files in sorted(file_outlines.items()):
+    write_json(FILE_DIR / (safe_slug(root) + ".json"), {
+        "schema_version": 1,
+        "root": root,
+        "files": files,
+    })
+
+capabilities["ast_grep_outline"] = bool(file_outlines)
+capabilities["ast_grep_outline_files"] = sum(len(x) for x in file_outlines.values())
 capabilities["ast_grep_outline_items"] = top_count
 capabilities["ast_grep_member_items"] = member_count
+capabilities["ast_symbol_shards"] = len(symbol_buckets)
+capabilities["ast_file_outline_shards"] = len(file_outlines)
 
-AST_LOOKUP.write_text(json.dumps({
+routing = {
     "schema_version": 1,
     "generated_by": "dbrckk/repo-brain",
-    "symbols": {name: entries[:30] for name, entries in sorted(lookup.items())}
-}, separators=(",", ":")) + "\n")
-
-FILE_OUTLINE.write_text(json.dumps({
-    "schema_version": 1,
-    "generated_by": "dbrckk/repo-brain",
-    "files": file_outline,
-}, separators=(",", ":")) + "\n")
-
+    "available": bool(file_outlines),
+    "symbol_shard_rule": "lowercase first character; non-alphanumeric uses _.json",
+    "symbol_shard_pattern": ".ai/brain/ast-symbols/<initial>.json",
+    "file_outline_rule": "first path component; root-level files use root.json",
+    "file_outline_pattern": ".ai/brain/file-outlines/<root>.json",
+    "symbol_shards": sorted(p.name for p in SYMBOL_DIR.glob("*.json")),
+    "file_outline_shards": sorted(p.name for p in FILE_DIR.glob("*.json")),
+}
+write_json(ROUTING, routing)
 CAP.write_text(json.dumps(capabilities, indent=2) + "\n")
-
 
 summary_path = BRAIN / "summary.md"
 if summary_path.exists():
@@ -162,7 +198,8 @@ if summary_path.exists():
         text += "- outline files: " + str(capabilities["ast_grep_outline_files"]) + "\n"
         text += "- top-level items: " + str(capabilities["ast_grep_outline_items"]) + "\n"
         text += "- direct members: " + str(capabilities["ast_grep_member_items"]) + "\n"
-        text += "- use ast-lookup.json for exact start/end ranges before opening a full file\n"
+        text += "- symbol shards: " + str(capabilities["ast_symbol_shards"]) + "\n"
+        text += "- route named symbols via ast-routing.json, then fetch one ast-symbols/<initial>.json shard\n"
     else:
         text += "- ast-grep outline: unavailable; portable index remains authoritative for routing\n"
     summary_path.write_text(text + "\n")
