@@ -56,8 +56,9 @@ jobs:
           python3 /tmp/repo-brain-merge-outline.py
           rm -f .ai/brain/ast-grep-outline.raw.json
           test -s .ai/brain/capabilities.json
-          test -s .ai/brain/ast-lookup.json
-          test -s .ai/brain/file-outline.json
+          test -s .ai/brain/ast-routing.json
+          test -d .ai/brain/ast-symbols
+          test -d .ai/brain/file-outlines
 
       - name: Commit Repo Brain context
         if: ${{ inputs.commit_changes }}
