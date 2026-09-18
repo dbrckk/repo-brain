@@ -168,6 +168,13 @@ for root, files in sorted(file_outlines.items()):
         "files": files,
     })
 
+# GitHub artifacts do not preserve empty directories. Keep explicit fallback files
+# so unsupported languages still round-trip through artifact upload/download.
+if not symbol_buckets:
+    write_json(SYMBOL_DIR / "_.json", {"schema_version": 1, "symbols": {}})
+if not file_outlines:
+    write_json(FILE_DIR / "root.json", {"schema_version": 1, "root": "root", "files": {}})
+
 capabilities["ast_grep_outline"] = bool(file_outlines)
 capabilities["ast_grep_outline_files"] = sum(len(x) for x in file_outlines.values())
 capabilities["ast_grep_outline_items"] = top_count
