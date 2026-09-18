@@ -137,6 +137,43 @@ def save_cached_route(task: str, result: dict[str, Any]) -> None:
         "entries": entries,
     })
 
+def choose_context_budget(ranked: list[dict[str, Any]], requested: int) -> dict[str, Any]:
+    if not ranked:
+        return {"tier": "fallback", "max_files": min(requested, 12), "confidence": "low"}
+    top = ranked[0]
+    top_score = int(top.get("score", 0))
+    top_terms = len(top.get("matched_terms") or [])
+    search_routed = "search-index" in (top.get("reasons") or [])
+    second_score = int(ranked[1].get("score", 0)) if len(ranked) > 1 else 0
+    margin = top_score - second_score
+
+    if search_routed and top_terms >= 2 and top_score >= 30:
+        chosen = min(requested, 3)
+        confidence = "high"
+        tier = "narrow"
+    elif search_routed and top_score >= 17:
+        chosen = min(requested, 6)
+        confidence = "medium"
+        tier = "bounded"
+    elif top_score >= 12 and margin >= 6:
+        chosen = min(requested, 6)
+        confidence = "medium"
+        tier = "bounded"
+    else:
+        chosen = min(requested, 12)
+        confidence = "low"
+        tier = "broad"
+
+    return {
+        "tier": tier,
+        "max_files": chosen,
+        "requested_max_files": requested,
+        "confidence": confidence,
+        "top_score": top_score,
+        "score_margin": margin,
+        "expand_to": min(requested, 12),
+    }
+
 def route(task: str, limit: int = 12) -> dict[str, Any]:
     cached = cached_route(task)
     if cached is not None:
@@ -177,14 +214,16 @@ def route(task: str, limit: int = 12) -> dict[str, Any]:
                 "symbols": sorted(item["symbols"])[:20],
             })
     ranked.sort(key=lambda x: (-x["score"], x["path"]))
+    budget = choose_context_budget(ranked, limit)
     result = {
         "schema_version": 1,
         "generated_by": "dbrckk/repo-brain-v8",
         "task": task,
         "terms": q,
-        "budget": {"max_files": limit},
-        "files": ranked[:limit],
-        "fallback": "Use architecture/segmented maps, then targeted source search if files are insufficient.",
+        "budget": budget,
+        "candidate_count": len(ranked),
+        "files": ranked[:budget["max_files"]],
+        "fallback": "If bounded context is insufficient, expand only to budget.expand_to, then use architecture/segmented maps and targeted source search.",
     }
     result["cache"] = {"hit": False, "fingerprint": task_fingerprint(task)}
     write_json(ROUTE, result)
