@@ -30,14 +30,30 @@ def impact():
 def tests():
     return load("selected-tests.json", {})
 
+def references(name):
+    data = load("references.json", {"symbols": {}})
+    return {"symbol": name, "data": (data.get("symbols") or {}).get(name, {})}
+
+def dependencies(name):
+    data = load("symbol-dependencies.json", {"symbols": {}})
+    return {"symbol": name, "data": (data.get("symbols") or {}).get(name, {})}
+
 def main():
     if len(sys.argv) < 2:
-        raise SystemExit("Usage: query.py symbol <name> | impact | tests")
+        raise SystemExit("Usage: query.py symbol <name> | references <name> | dependencies <name> | impact | tests")
     cmd = sys.argv[1]
     if cmd == "symbol":
         if len(sys.argv) < 3:
             raise SystemExit("Usage: query.py symbol <name>")
         result = symbol(sys.argv[2])
+    elif cmd == "references":
+        if len(sys.argv) < 3:
+            raise SystemExit("Usage: query.py references <name>")
+        result = references(sys.argv[2])
+    elif cmd == "dependencies":
+        if len(sys.argv) < 3:
+            raise SystemExit("Usage: query.py dependencies <name>")
+        result = dependencies(sys.argv[2])
     elif cmd == "impact":
         result = impact()
     elif cmd == "tests":
