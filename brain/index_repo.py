@@ -192,6 +192,22 @@ imports_json = {
 (OUT / "imports.json").write_text(json.dumps({"imports": imports_json}, indent=2) + "\n")
 (OUT / "code-graph.json").write_text(json.dumps({"edges": edges}, indent=2) + "\n")
 
+lookup = defaultdict(list)
+for s in symbols:
+    item = {
+        "file": s["file"],
+        "line": s["line"],
+        "kind": s["kind"],
+        "language": s["language"],
+    }
+    lookup[s["name"]].append(item)
+
+compact_lookup = {
+    name: entries[:20]
+    for name, entries in sorted(lookup.items())
+}
+(OUT / "lookup.json").write_text(json.dumps({"symbols": compact_lookup}, separators=(",", ":")) + "\n")
+
 summary = [
     "# Repo Brain",
     "",
@@ -211,7 +227,8 @@ for file, count in symbols_by_file.most_common(20):
 summary += [
     "",
     "## Agent routing",
-    "- Search symbols.json by symbol name before opening broad source files.",
+    "- Search lookup.json first for direct symbol-to-file routing.",
+    "- Use symbols.json only when broader symbol metadata is needed.",
     "- Use code-graph.json to inspect likely internal import relationships.",
     "- Use imports.json when a changed file crosses module boundaries.",
     "- Treat graph edges as static hints; verify source before editing.",
