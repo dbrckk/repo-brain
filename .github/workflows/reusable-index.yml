@@ -117,16 +117,6 @@ jobs:
           test -s .ai/brain/semantic-plan.json
           test -s .ai/brain/semantic-index.json
 
-      - name: Generate compact graph routing
-        shell: bash
-        run: |
-          python3 .repo-brain-tool/brain/graph_compact.py
-          test -s .ai/brain/graph-index.json
-          test -s .ai/brain/reverse-deps.json
-          test -s .ai/brain/graph-manifest.json
-          test -d .ai/brain/graph-shards
-          test -s .ai/brain/architecture.mmd
-
       - name: Generate persistent search shards
         shell: bash
         run: |
@@ -137,6 +127,18 @@ jobs:
             printf '{"schema_version":1,"generated_by":"dbrckk/repo-brain-query-cache-v1","entries":{}}\n' > .ai/brain/query-cache.json
           fi
           test -s .ai/brain/query-cache.json
+
+      - name: Enrich and compact graph routing
+        shell: bash
+        run: |
+          python3 .repo-brain-tool/brain/enrich_graph.py
+          test -s .ai/brain/graph-enrichment.json
+          python3 .repo-brain-tool/brain/graph_compact.py
+          test -s .ai/brain/graph-index.json
+          test -s .ai/brain/reverse-deps.json
+          test -s .ai/brain/graph-manifest.json
+          test -d .ai/brain/graph-shards
+          test -s .ai/brain/architecture.mmd
 
       - name: Precompute v6 hotset and context packets
         shell: bash
