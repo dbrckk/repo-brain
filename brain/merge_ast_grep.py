@@ -10,6 +10,10 @@ RAW = BRAIN / "ast-grep-outline.raw.json"
 AST_LOOKUP = BRAIN / "ast-lookup.json"
 FILE_OUTLINE = BRAIN / "file-outline.json"
 CAP = BRAIN / "capabilities.json"
+LEGACY_OUTLINE = BRAIN / "outline.json"
+
+if LEGACY_OUTLINE.exists():
+    LEGACY_OUTLINE.unlink()
 
 capabilities = {
     "schema_version": 2,
@@ -147,3 +151,18 @@ FILE_OUTLINE.write_text(json.dumps({
 }, separators=(",", ":")) + "\n")
 
 CAP.write_text(json.dumps(capabilities, indent=2) + "\n")
+
+
+summary_path = BRAIN / "summary.md"
+if summary_path.exists():
+    text = summary_path.read_text().rstrip()
+    text += "\n\n## ast-grep enrichment\n"
+    if capabilities["ast_grep_outline"]:
+        text += "- ast-grep outline: available\n"
+        text += "- outline files: " + str(capabilities["ast_grep_outline_files"]) + "\n"
+        text += "- top-level items: " + str(capabilities["ast_grep_outline_items"]) + "\n"
+        text += "- direct members: " + str(capabilities["ast_grep_member_items"]) + "\n"
+        text += "- use ast-lookup.json for exact start/end ranges before opening a full file\n"
+    else:
+        text += "- ast-grep outline: unavailable; portable index remains authoritative for routing\n"
+    summary_path.write_text(text + "\n")
