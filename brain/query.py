@@ -15,7 +15,28 @@ def load(path, default):
     except Exception:
         return default
 
+def semantic_symbol(name):
+    data = load("semantic-index.json", {"available": False, "symbols": {}})
+    if data.get("available"):
+        direct = (data.get("symbols") or {}).get(name)
+        if direct:
+            return {"source": "scip", "symbol": name, "data": direct}
+        # SCIP symbols are fully-qualified; allow suffix/name matching as a compact fallback.
+        matches = {}
+        needle = name.lower()
+        for key, value in (data.get("symbols") or {}).items():
+            if needle in key.lower():
+                matches[key] = value
+                if len(matches) >= 20:
+                    break
+        if matches:
+            return {"source": "scip", "symbol": name, "matches": matches}
+    return None
+
 def symbol(name):
+    precise = semantic_symbol(name)
+    if precise:
+        return precise
     caps = load("capabilities.json", {})
     if caps.get("ast_grep_outline"):
         shard = name[0].lower() if name and name[0].isalnum() else "_"
@@ -37,8 +58,21 @@ def references(name):
     return {"symbol": name, "data": (data.get("symbols") or {}).get(name, {})}
 
 def dependencies(name):
+    precise = semantic_symbol(name)
+    if precise:
+        return precise
     data = load("symbol-dependencies.json", {"symbols": {}})
     return {"symbol": name, "data": (data.get("symbols") or {}).get(name, {})}
+
+def semantic_status():
+    plan = load("semantic-plan.json", {})
+    index = load("semantic-index.json", {})
+    return {
+        "plan": plan,
+        "available": bool(index.get("available")),
+        "document_count": index.get("document_count", 0),
+        "symbol_count": index.get("symbol_count", 0),
+    }
 
 def route():
     return load("task-route.json", {})
@@ -51,7 +85,7 @@ def packet(name):
 
 def main():
     if len(sys.argv) < 2:
-        raise SystemExit("Usage: query.py symbol <name> | references <name> | dependencies <name> | impact | tests | route | session | packet <name>")
+        raise SystemExit("Usage: query.py symbol <name> | references <name> | dependencies <name> | semantic-status | impact | tests | route | session | packet <name>")
     cmd = sys.argv[1]
     if cmd == "symbol":
         if len(sys.argv) < 3:
@@ -65,6 +99,8 @@ def main():
         if len(sys.argv) < 3:
             raise SystemExit("Usage: query.py dependencies <name>")
         result = dependencies(sys.argv[2])
+    elif cmd == "semantic-status":
+        result = semantic_status()
     elif cmd == "impact":
         result = impact()
     elif cmd == "tests":
