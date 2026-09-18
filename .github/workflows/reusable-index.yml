@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          fetch-depth: 20
+          fetch-depth: 100
           ref: ${{ github.ref_name }}
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -37,13 +37,16 @@ jobs:
       - name: Generate symbol intelligence
         shell: bash
         run: |
-          python3 .repo-brain-tool/brain/index_repo.py
+          python3 .repo-brain-tool/brain/incremental_index.py
           test -s .ai/brain/index.json
           test -s .ai/brain/symbols.json
           test -s .ai/brain/imports.json
           test -s .ai/brain/code-graph.json
           test -s .ai/brain/lookup.json
           test -s .ai/brain/summary.md
+          test -s .ai/brain/incremental-state.json
+          test -s .ai/brain/impact.json
+          test -s .ai/brain/selected-tests.json
 
       - name: Generate ast-grep outline
         shell: bash
