@@ -102,6 +102,13 @@ jobs:
               raise SystemExit("Missing Repo Brain AST outputs: " + ", ".join(missing))
           PY
 
+      - name: Generate changed-symbol references
+        shell: bash
+        run: |
+          python3 .repo-brain-tool/brain/references.py
+          test -s .ai/brain/references.json
+          test -s .ai/brain/symbol-dependencies.json
+
       - name: Commit Repo Brain context
         if: ${{ inputs.commit_changes }}
         shell: bash
