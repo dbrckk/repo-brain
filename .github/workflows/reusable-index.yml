@@ -24,7 +24,7 @@ jobs:
       - name: Fetch Repo Brain indexer
         shell: bash
         run: |
-          curl -fsSL https://raw.githubusercontent.com/dbrckk/repo-brain/v1/brain/index_repo.py -o /tmp/repo-brain-index.py
+          curl -fsSL https://raw.githubusercontent.com/dbrckk/repo-brain/v2/brain/index_repo.py -o /tmp/repo-brain-index.py
 
       - name: Generate symbol intelligence
         shell: bash
@@ -34,6 +34,7 @@ jobs:
           test -s .ai/brain/symbols.json
           test -s .ai/brain/imports.json
           test -s .ai/brain/code-graph.json
+          test -s .ai/brain/lookup.json
           test -s .ai/brain/summary.md
 
       - name: Commit Repo Brain context
@@ -48,3 +49,13 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "chore(ai): refresh repo brain"
           git push origin "HEAD:${GITHUB_REF_NAME}"
+
+
+      - name: Upload Repo Brain context
+        if: ${{ !inputs.commit_changes }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: repo-brain
+          path: .ai/brain/**
+          include-hidden-files: true
+          if-no-files-found: error
