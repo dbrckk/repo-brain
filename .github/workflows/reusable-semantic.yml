@@ -1,0 +1,99 @@
+name: Reusable precise semantic refresh
+
+on:
+  workflow_call:
+    inputs:
+      commit_changes:
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  semantic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 20
+          ref: ${{ github.ref_name }}
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: "stable"
+          cache: false
+
+      - name: Checkout Repo Brain tool
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: dbrckk/repo-brain
+          ref: main
+          path: .repo-brain-tool
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Detect semantic indexer
+        shell: bash
+        run: |
+          python3 .repo-brain-tool/brain/semantic_plan.py
+          cat .ai/brain/semantic-plan.json
+
+      - name: Generate SCIP index
+        id: scip_index
+        shell: bash
+        continue-on-error: true
+        run: |
+          rm -f index.scip
+          if [ -f build.gradle ] || [ -f build.gradle.kts ] || [ -f pom.xml ]; then
+            docker run --rm -v "$PWD:/sources" -w /sources               ghcr.io/scip-code/scip-java:v0.13.1 scip-java index || true
+          elif [ -f pyproject.toml ] || [ -f setup.py ] || [ -f setup.cfg ]; then
+            npx -y @sourcegraph/scip-python index . --project-name="${GITHUB_REPOSITORY##*/}" || true
+          elif [ -f tsconfig.json ]; then
+            npx -y @sourcegraph/scip-typescript index || true
+          elif [ -f go.mod ]; then
+            go install github.com/scip-code/scip-go/cmd/scip-go@latest
+            "$(go env GOPATH)/bin/scip-go" || true
+          fi
+          if [ -s index.scip ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Convert SCIP to compact JSON
+        if: steps.scip_index.outputs.available == 'true'
+        shell: bash
+        continue-on-error: true
+        run: |
+          go install github.com/scip-code/scip/cmd/scip@latest
+          "$(go env GOPATH)/bin/scip" print --json index.scip > .ai/brain/scip.raw.json
+          python3 .repo-brain-tool/brain/scip_compact.py
+          rm -f .ai/brain/scip.raw.json index.scip
+
+      - name: Ensure semantic fallback
+        if: always()
+        shell: bash
+        run: |
+          python3 .repo-brain-tool/brain/scip_compact.py
+          test -s .ai/brain/semantic-plan.json
+          test -s .ai/brain/semantic-index.json
+
+      - name: Commit semantic context
+        if: ${{ inputs.commit_changes }}
+        shell: bash
+        run: |
+          git add -A .ai/brain/semantic-plan.json .ai/brain/semantic-index.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(ai): refresh precise semantic index"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
