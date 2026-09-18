@@ -6,10 +6,12 @@ import sys
 from pathlib import Path
 
 BRAIN = Path(".ai/brain")
+AI = Path(".ai")
 
 def load(path, default):
     try:
-        return json.loads((BRAIN / path).read_text())
+        base = AI if str(path).startswith("session-") else BRAIN
+        return json.loads((base / path).read_text())
     except Exception:
         return default
 
@@ -38,9 +40,18 @@ def dependencies(name):
     data = load("symbol-dependencies.json", {"symbols": {}})
     return {"symbol": name, "data": (data.get("symbols") or {}).get(name, {})}
 
+def route():
+    return load("task-route.json", {})
+
+def session():
+    return load("session-state.json", {})
+
+def packet(name):
+    return load(f"context/{name}.json", {})
+
 def main():
     if len(sys.argv) < 2:
-        raise SystemExit("Usage: query.py symbol <name> | references <name> | dependencies <name> | impact | tests")
+        raise SystemExit("Usage: query.py symbol <name> | references <name> | dependencies <name> | impact | tests | route | session | packet <name>")
     cmd = sys.argv[1]
     if cmd == "symbol":
         if len(sys.argv) < 3:
@@ -58,6 +69,14 @@ def main():
         result = impact()
     elif cmd == "tests":
         result = tests()
+    elif cmd == "route":
+        result = route()
+    elif cmd == "session":
+        result = session()
+    elif cmd == "packet":
+        if len(sys.argv) < 3:
+            raise SystemExit("Usage: query.py packet <name>")
+        result = packet(sys.argv[2])
     else:
         raise SystemExit("Unknown query: " + cmd)
     print(json.dumps(result, indent=2))
