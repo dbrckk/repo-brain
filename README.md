@@ -1,25 +1,46 @@
 # repo-brain
 
-Central code-intelligence engine for repositories using dbrckk/repo-standards.
+Central code-intelligence engine for repositories using `dbrckk/repo-standards`.
 
-repo-standards manages repository hygiene, CI context, project state and compact maps.
-repo-brain adds a smaller symbol-oriented navigation layer so AI agents can locate relevant code before reading large files.
+## v3
 
-Generated files:
-.ai/brain/index.json
-.ai/brain/symbols.json
-.ai/brain/imports.json
-.ai/brain/code-graph.json
-.ai/brain/summary.md
+Repo Brain v3 combines two layers:
 
-Recommended reading order:
-1. .ai/project-state.md
-2. .ai/change-impact.md
-3. .ai/brain/summary.md
-4. .ai/brain/index.json
-5. .ai/brain/code-graph.json
-6. relevant source files
-7. segmented/full repo maps only when needed
+1. A portable built-in indexer that works without external parsing tools.
+2. Optional ast-grep Outline enrichment for exact symbol/member ranges when supported.
 
-Reusable workflow:
-dbrckk/repo-brain/.github/workflows/reusable-index.yml@v1
+Generated context:
+
+```text
+.ai/brain/
+├── summary.md
+├── capabilities.json
+├── index.json
+├── lookup.json
+├── symbols.json
+├── imports.json
+├── code-graph.json
+├── ast-routing.json
+├── ast-symbols/
+│   ├── a.json
+│   ├── p.json
+│   └── ...
+└── file-outlines/
+    ├── src.json
+    ├── tests.json
+    └── ...
+```
+
+## Routing
+
+For a named symbol such as `ProviderSpec`:
+
+1. Read `.ai/brain/capabilities.json`.
+2. If `ast_grep_outline` is true, read `.ai/brain/ast-routing.json`.
+3. Lowercase the first symbol character and open that shard, for example `.ai/brain/ast-symbols/p.json`.
+4. Use the exact file and start/end line range from that entry.
+5. Verify the authoritative source before editing.
+
+When ast-grep is unavailable or has no useful entry, fall back to `.ai/brain/lookup.json`.
+
+Repo Brain never treats static relationships as proof of runtime behavior.
