@@ -4,16 +4,32 @@ Central code-intelligence engine for repositories using `dbrckk/repo-standards`.
 
 ## v4
 
-Repo Brain v4 adds incremental indexing, change impact analysis, targeted test selection, and a compact query CLI on top of the v3 AST routing layer.
+Repo Brain v4 adds incremental indexing, impact analysis, targeted test selection, and a small query CLI.
 
-Generated context:
+### Incremental mode
+
+Repo Brain stores its previous indexed commit in:
+
+```text
+.ai/brain/incremental-state.json
+```
+
+On the next run it:
+
+1. compares the previous indexed commit with the current HEAD;
+2. removes stale symbol/import entries for changed or deleted files;
+3. reparses only changed source files;
+4. rebuilds derived lookup/graph outputs from the merged state;
+5. falls back to a full rebuild when history is unavailable, divergent, or the change set is too large.
+
+### New outputs
 
 ```text
 .ai/brain/
-├── summary.md
 ├── incremental-state.json
 ├── impact.json
 ├── selected-tests.json
+├── summary.md
 ├── capabilities.json
 ├── index.json
 ├── lookup.json
@@ -22,50 +38,32 @@ Generated context:
 ├── code-graph.json
 ├── ast-routing.json
 ├── ast-symbols/
-│   ├── a.json
-│   ├── p.json
-│   └── ...
 └── file-outlines/
-    ├── src.json
-    ├── tests.json
-    └── ...
 ```
 
-## Incremental indexing
+### Impact
 
-The first run performs a full portable rebuild. Later runs reuse the previous committed index when the stored `indexed_head` is still an ancestor of the current commit.
+`impact.json` records:
 
-For a small diff Repo Brain:
+- changed files;
+- changed source files;
+- files that statically depend on changed source;
+- symbols in affected files;
+- test candidates.
 
-1. removes stale symbols/imports for changed or deleted files;
-2. reparses only changed source files;
-3. rebuilds the lightweight relationship graph from the merged index;
-4. writes `impact.json`;
-5. selects likely tests in `selected-tests.json`.
+### Targeted tests
 
-A full rebuild is used automatically when the previous state is unavailable, divergent, or the change set is too large.
+`selected-tests.json` contains the smallest detected test set and candidate commands.
 
-## Routing
+For Python repositories, Repo Brain can generate a command such as:
 
-For a named symbol such as `ProviderSpec`:
+```text
+python -m pytest tests/test_provider_router.py
+```
 
-1. read `.ai/brain/capabilities.json`;
-2. when ast-grep enrichment is available, route through `.ai/brain/ast-routing.json`;
-3. open one symbol shard, for example `.ai/brain/ast-symbols/p.json`;
-4. use the exact file and start/end range;
-5. verify the authoritative source before editing.
+When confidence is insufficient, agents must fall back to the repository's canonical validation commands.
 
-When AST routing has no useful hit, fall back to `.ai/brain/lookup.json`.
-
-## Impact and tests
-
-Read `.ai/brain/impact.json` before broad exploration. It records changed source files, likely reverse-import impact, impacted symbols, and test candidates.
-
-Read `.ai/brain/selected-tests.json` before running the full suite. Its commands are targeted candidates and should be verified against the repository's canonical test tooling.
-
-## Query CLI
-
-When the Repo Brain tool checkout is available:
+### Query CLI
 
 ```text
 python brain/query.py symbol ProviderSpec
@@ -73,4 +71,16 @@ python brain/query.py impact
 python brain/query.py tests
 ```
 
-Repo Brain never treats static relationships as proof of runtime behavior.
+The CLI is intentionally small and returns only the requested routing data.
+
+## AST routing
+
+Repo Brain still uses optional ast-grep Outline enrichment for exact symbol/member ranges when supported. The portable index remains the fallback.
+
+For a symbol such as `ProviderSpec`:
+
+1. read `.ai/brain/capabilities.json`;
+2. if `ast_grep_outline` is true, route through `.ai/brain/ast-routing.json`;
+3. open one `.ai/brain/ast-symbols/<initial>.json` shard;
+4. use the exact source range;
+5. verify authoritative source before editing.
