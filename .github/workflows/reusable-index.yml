@@ -109,6 +109,15 @@ jobs:
           test -s .ai/brain/references.json
           test -s .ai/brain/symbol-dependencies.json
 
+      - name: Precompute v6 hotset and context packets
+        shell: bash
+        run: |
+          python3 .repo-brain-tool/brain/precompute.py
+          test -s .ai/brain/hotset.json
+          test -s .ai/brain/context-manifest.json
+          test -s .ai/brain/hash-cache.json
+          test -d .ai/brain/context
+
       - name: Commit Repo Brain context
         if: ${{ inputs.commit_changes }}
         shell: bash
