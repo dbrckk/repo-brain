@@ -109,6 +109,16 @@ jobs:
           test -s .ai/brain/references.json
           test -s .ai/brain/symbol-dependencies.json
 
+      - name: Generate compact graph routing
+        shell: bash
+        run: |
+          python3 .repo-brain-tool/brain/graph_compact.py
+          test -s .ai/brain/graph-index.json
+          test -s .ai/brain/reverse-deps.json
+          test -s .ai/brain/graph-manifest.json
+          test -d .ai/brain/graph-shards
+          test -s .ai/brain/architecture.mmd
+
       - name: Precompute v6 hotset and context packets
         shell: bash
         run: |
