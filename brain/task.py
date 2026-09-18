@@ -35,6 +35,20 @@ def terms(text: str) -> list[str]:
     raw = re.findall(r"[A-Za-z0-9_.$/-]{2,}", text.lower())
     return [x for x in raw if x not in STOP]
 
+def search_candidates(query_terms: list[str]) -> dict[str, set[str]]:
+    matches: dict[str, set[str]] = {}
+    loaded: dict[str, dict[str, Any]] = {}
+    for token in query_terms:
+        if not token:
+            continue
+        shard = token[0].lower() if token[0].isalnum() else "_"
+        if shard not in loaded:
+            loaded[shard] = read_json(BRAIN / "search-shards" / f"{shard}.json", {"tokens": {}})
+        paths = (loaded[shard].get("tokens") or {}).get(token, [])
+        for path in paths:
+            matches.setdefault(path, set()).add(token)
+    return matches
+
 def collect_candidates() -> dict[str, dict[str, Any]]:
     candidates: dict[str, dict[str, Any]] = {}
 
@@ -129,6 +143,10 @@ def route(task: str, limit: int = 12) -> dict[str, Any]:
         return cached
     q = terms(task)
     candidates = collect_candidates()
+    for path, matched in search_candidates(q).items():
+        item = candidates.setdefault(path, {"path": path, "symbols": set(), "reasons": []})
+        item["reasons"].append("search-index")
+        item["search_terms"] = matched
     ranked = []
     for path, item in candidates.items():
         hay = (path + " " + " ".join(item["symbols"])).lower()
@@ -138,12 +156,18 @@ def route(task: str, limit: int = 12) -> dict[str, Any]:
             if token in hay:
                 score += 10 if token in path.lower() else 4
                 matched.append(token)
+        search_hits = set(item.get("search_terms") or set())
+        if search_hits:
+            score += 12 * len(search_hits)
+            matched.extend(sorted(search_hits))
         if "session" in item["reasons"]:
             score += 8
         if "impact" in item["reasons"]:
             score += 6
         if "recently-changed" in item["reasons"]:
             score += 3
+        if "search-index" in item["reasons"]:
+            score += 5
         if score:
             ranked.append({
                 "path": path,
@@ -155,7 +179,7 @@ def route(task: str, limit: int = 12) -> dict[str, Any]:
     ranked.sort(key=lambda x: (-x["score"], x["path"]))
     result = {
         "schema_version": 1,
-        "generated_by": "dbrckk/repo-brain-v6",
+        "generated_by": "dbrckk/repo-brain-v8",
         "task": task,
         "terms": q,
         "budget": {"max_files": limit},
