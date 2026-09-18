@@ -56,7 +56,13 @@ def ast_ranges_for(name):
 impact = load("impact.json", {})
 lookup = load("lookup.json", {"symbols": {}}).get("symbols") or {}
 symbols = load("symbols.json", {"symbols": []}).get("symbols") or []
+graph = load("code-graph.json", {"edges": []}).get("edges") or []
 changed_source = set(impact.get("changed_source_files") or [])
+
+outgoing_targets = defaultdict(set)
+for edge in graph:
+    if edge.get("type") == "imports" and edge.get("source") and edge.get("target"):
+        outgoing_targets[edge["source"]].add(edge["target"])
 
 changed_defs = []
 seen = set()
@@ -119,9 +125,28 @@ for sym in changed_defs:
             if dep_name == name:
                 continue
             defs = lookup.get(dep_name) or []
+            if not defs:
+                continue
+
+            same_file = [d for d in defs if d.get("file") == sym.get("file")]
+            imported = [
+                d for d in defs
+                if d.get("file") in outgoing_targets.get(sym.get("file"), set())
+            ]
+            class_like = dep_name[:1].isupper()
+
+            chosen = same_file or imported or (defs[:5] if class_like else [])
+            if not chosen:
+                continue
+
             candidates.append({
                 "symbol": dep_name,
-                "definitions": defs[:5],
+                "definitions": chosen[:5],
+                "relation": (
+                    "same_file" if same_file
+                    else "imported_module" if imported
+                    else "class_like"
+                ),
             })
             if len(candidates) >= MAX_DEPS_PER_SYMBOL:
                 break
