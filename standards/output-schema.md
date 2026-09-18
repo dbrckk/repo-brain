@@ -1,10 +1,16 @@
 # Output schema
 
-Repo Brain writes only under `.ai/brain/`.
+Repo Brain writes generated repository context under `.ai/brain/`.
+
+## Incremental state
+
+- `incremental-state.json`: indexed commit, base commit, mode, source-file count and number of files reparsed.
+- `impact.json`: changed files, changed source files, reverse-import impact, impacted symbols and selected tests.
+- `selected-tests.json`: selected test files plus candidate targeted commands.
 
 ## Portable layer
 
-- `index.json`: compact counts, languages, and high-density symbol files.
+- `index.json`: counts, languages, index mode and high-density symbol files.
 - `lookup.json`: portable symbol-to-file lookup.
 - `symbols.json`: portable symbol metadata.
 - `imports.json`: imports grouped by source file.
@@ -18,4 +24,4 @@ Repo Brain writes only under `.ai/brain/`.
 - `ast-symbols/<initial>.json`: exact symbol/member ranges, sharded by lowercase first character.
 - `file-outlines/<root>.json`: compact AST structure grouped by first path component.
 
-ast-grep Outline is an optional syntax view. It does not resolve types, references, runtime calls, or imports. The portable layer remains the fallback.
+ast-grep Outline is an optional syntax view. It does not resolve runtime calls or full semantic references. The portable layer remains the fallback.
