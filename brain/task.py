@@ -181,7 +181,7 @@ def choose_context_budget(ranked: list[dict[str, Any]], requested: int) -> dict[
         confidence = "medium"
         tier = "bounded"
     else:
-        chosen = min(requested, 12)
+        chosen = min(requested, 6)
         confidence = "low"
         tier = "broad"
 
