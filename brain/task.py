@@ -13,7 +13,8 @@ AI = Path(".ai")
 SESSION = AI / "session-state.json"
 ROUTE = BRAIN / "task-route.json"
 CACHE = BRAIN / "hash-cache.json"
-QUERY_CACHE = BRAIN / "query-cache.json"\nLEARNING = BRAIN / "routing-learning.json"
+QUERY_CACHE = BRAIN / "query-cache.json"
+LEARNING = BRAIN / "routing-learning.json"
 
 STOP = {
     "the","a","an","and","or","to","of","in","on","for","with","this","that",
