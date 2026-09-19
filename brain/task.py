@@ -13,7 +13,7 @@ AI = Path(".ai")
 SESSION = AI / "session-state.json"
 ROUTE = BRAIN / "task-route.json"
 CACHE = BRAIN / "hash-cache.json"
-QUERY_CACHE = BRAIN / "query-cache.json"
+QUERY_CACHE = BRAIN / "query-cache.json"\nLEARNING = BRAIN / "routing-learning.json"
 
 STOP = {
     "the","a","an","and","or","to","of","in","on","for","with","this","that",
@@ -34,6 +34,14 @@ def write_json(path: Path, value: Any) -> None:
 def terms(text: str) -> list[str]:
     raw = re.findall(r"[A-Za-z0-9_.$/-]{2,}", text.lower())
     return [x for x in raw if x not in STOP]
+
+def learning_hints(query_terms: list[str]) -> dict[str, int]:
+    data = read_json(LEARNING, {"term_file_scores": {}})
+    scores: dict[str, int] = {}
+    for token in query_terms:
+        for path, score in ((data.get("term_file_scores") or {}).get(token) or {}).items():
+            scores[path] = scores.get(path, 0) + int(score)
+    return scores
 
 def search_candidates(query_terms: list[str]) -> dict[str, set[str]]:
     matches: dict[str, set[str]] = {}
@@ -184,6 +192,10 @@ def route(task: str, limit: int = 12) -> dict[str, Any]:
         item = candidates.setdefault(path, {"path": path, "symbols": set(), "reasons": []})
         item["reasons"].append("search-index")
         item["search_terms"] = matched
+    for path, learned_score in learning_hints(q).items():
+        item = candidates.setdefault(path, {"path": path, "symbols": set(), "reasons": []})
+        item["reasons"].append("learning")
+        item["learning_score"] = learned_score
     ranked = []
     for path, item in candidates.items():
         hay = (path + " " + " ".join(item["symbols"])).lower()
@@ -205,6 +217,9 @@ def route(task: str, limit: int = 12) -> dict[str, Any]:
             score += 3
         if "search-index" in item["reasons"]:
             score += 5
+        learned_score = int(item.get("learning_score") or 0)
+        if learned_score:
+            score += learned_score
         if score:
             ranked.append({
                 "path": path,
@@ -212,6 +227,7 @@ def route(task: str, limit: int = 12) -> dict[str, Any]:
                 "matched_terms": sorted(set(matched)),
                 "reasons": sorted(set(item["reasons"])),
                 "symbols": sorted(item["symbols"])[:20],
+                "learning_score": learned_score,
             })
     ranked.sort(key=lambda x: (-x["score"], x["path"]))
     budget = choose_context_budget(ranked, limit)
