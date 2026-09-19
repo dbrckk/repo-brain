@@ -164,6 +164,17 @@ jobs:
           test -s .ai/brain/hash-cache.json
           test -d .ai/brain/context
 
+      - name: Run Repo Brain regression tests
+        shell: bash
+        run: |
+          python3 .repo-brain-tool/tests/test_core.py
+
+      - name: Run routing benchmark
+        shell: bash
+        run: |
+          python3 .repo-brain-tool/brain/benchmark.py
+          test -s .ai/brain/benchmark.json
+
       - name: Commit Repo Brain context
         if: ${{ inputs.commit_changes }}
         shell: bash
