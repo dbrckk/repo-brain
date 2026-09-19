@@ -70,6 +70,14 @@ def search_token(token):
     data = load(f"search-shards/{shard}.json", {"tokens": {}})
     return {"token": token, "files": (data.get("tokens") or {}).get(token, [])}
 
+def learning_status():
+    data = load("routing-learning.json", {})
+    return {
+        "example_count": len(data.get("examples") or []),
+        "term_count": len(data.get("term_file_scores") or {}),
+        "test_term_count": len(data.get("term_test_scores") or {}),
+    }
+
 def semantic_status():
     plan = load("semantic-plan.json", {})
     index = load("semantic-index.json", {})
@@ -91,7 +99,7 @@ def packet(name):
 
 def main():
     if len(sys.argv) < 2:
-        raise SystemExit("Usage: query.py symbol <name> | references <name> | dependencies <name> | search <token> | semantic-status | impact | tests | route | session | packet <name>")
+        raise SystemExit("Usage: query.py symbol <name> | references <name> | dependencies <name> | search <token> | semantic-status | learning-status | impact | tests | route | session | packet <name>")
     cmd = sys.argv[1]
     if cmd == "symbol":
         if len(sys.argv) < 3:
@@ -109,6 +117,8 @@ def main():
         if len(sys.argv) < 3:
             raise SystemExit("Usage: query.py search <token>")
         result = search_token(sys.argv[2])
+    elif cmd == "learning-status":
+        result = learning_status()
     elif cmd == "semantic-status":
         result = semantic_status()
     elif cmd == "impact":
