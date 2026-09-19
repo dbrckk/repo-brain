@@ -127,6 +127,10 @@ jobs:
             printf '{"schema_version":1,"generated_by":"dbrckk/repo-brain-query-cache-v1","entries":{}}\n' > .ai/brain/query-cache.json
           fi
           test -s .ai/brain/query-cache.json
+          if [ ! -s .ai/brain/routing-learning.json ]; then
+            printf '{"schema_version":1,"generated_by":"dbrckk/repo-brain-learning-v1","term_file_scores":{},"term_test_scores":{},"examples":[]}\n' > .ai/brain/routing-learning.json
+          fi
+          test -s .ai/brain/routing-learning.json
 
       - name: Enrich and compact graph routing
         shell: bash
