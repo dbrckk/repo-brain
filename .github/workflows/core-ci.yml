@@ -1,0 +1,32 @@
+name: Repo Brain core CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "brain/**"
+      - "tests/**"
+      - ".github/workflows/core-ci.yml"
+  pull_request:
+    paths:
+      - "brain/**"
+      - "tests/**"
+      - ".github/workflows/core-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Compile Python
+        run: |
+          python3 -m compileall -q brain tests
+
+      - name: Core regression tests
+        run: |
+          python3 tests/test_core.py
