@@ -326,6 +326,12 @@ def main() -> None:
     p.add_argument("task")
     p.add_argument("--limit", type=int, default=12)
 
+    p = sub.add_parser("learn")
+    p.add_argument("task")
+    p.add_argument("--useful", action="append", default=[])
+    p.add_argument("--reject", action="append", default=[])
+    p.add_argument("--test", action="append", default=[])
+
     args = parser.parse_args()
     if args.cmd == "route":
         out = route(args.task, args.limit)
@@ -333,6 +339,19 @@ def main() -> None:
         out = refresh_cache(args.paths)
     elif args.cmd == "checkpoint":
         out = checkpoint(args.task, args.file, args.next, args.test)
+    elif args.cmd == "learn":
+        import subprocess
+        cmd = ["python3", str(Path(__file__).with_name("learning.py")), "learn", args.task]
+        for path in args.useful:
+            cmd += ["--useful", path]
+        for path in args.reject:
+            cmd += ["--reject", path]
+        for path in args.test:
+            cmd += ["--test", path]
+        proc = subprocess.run(cmd, text=True, capture_output=True)
+        if proc.returncode != 0:
+            raise SystemExit(proc.stderr.strip() or "learning command failed")
+        out = json.loads(proc.stdout)
     else:
         out = packet(args.name, args.task, args.limit)
     print(json.dumps(out, indent=2))
