@@ -70,6 +70,17 @@ def search_token(token):
     data = load(f"search-shards/{shard}.json", {"tokens": {}})
     return {"token": token, "files": (data.get("tokens") or {}).get(token, [])}
 
+def validation_status():
+    data = load("validation-memory.json", {})
+    records = data.get("records") or []
+    return {
+        "record_count": len(records),
+        "term_count": len(data.get("term_test_scores") or {}),
+        "passed": sum(1 for r in records if r.get("status") == "passed"),
+        "failed": sum(1 for r in records if r.get("status") == "failed"),
+        "skipped": sum(1 for r in records if r.get("status") == "skipped"),
+    }
+
 def learning_status():
     data = load("routing-learning.json", {})
     return {
@@ -99,7 +110,7 @@ def packet(name):
 
 def main():
     if len(sys.argv) < 2:
-        raise SystemExit("Usage: query.py symbol <name> | references <name> | dependencies <name> | search <token> | semantic-status | learning-status | impact | tests | route | session | packet <name>")
+        raise SystemExit("Usage: query.py symbol <name> | references <name> | dependencies <name> | search <token> | semantic-status | learning-status | validation-status | impact | tests | route | session | packet <name>")
     cmd = sys.argv[1]
     if cmd == "symbol":
         if len(sys.argv) < 3:
@@ -117,6 +128,8 @@ def main():
         if len(sys.argv) < 3:
             raise SystemExit("Usage: query.py search <token>")
         result = search_token(sys.argv[2])
+    elif cmd == "validation-status":
+        result = validation_status()
     elif cmd == "learning-status":
         result = learning_status()
     elif cmd == "semantic-status":
