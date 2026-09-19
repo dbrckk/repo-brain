@@ -175,6 +175,12 @@ jobs:
           python3 .repo-brain-tool/brain/benchmark.py
           test -s .ai/brain/benchmark.json
 
+      - name: Validate routing benchmark health
+        shell: bash
+        run: |
+          python3 .repo-brain-tool/brain/benchmark_guard.py
+          test -s .ai/brain/benchmark-health.json
+
       - name: Commit Repo Brain context
         if: ${{ inputs.commit_changes }}
         shell: bash
