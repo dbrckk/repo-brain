@@ -36,7 +36,8 @@ class TaskTests(unittest.TestCase):
     def test_dynamic_budget_low_confidence(self):
         ranked = [{"score": 5, "matched_terms": [], "reasons": []}]
         budget = task.choose_context_budget(ranked, 12)
-        self.assertEqual(budget["max_files"], 12)
+        self.assertEqual(budget["max_files"], 6)
+        self.assertEqual(budget["expand_to"], 12)
 
 class LearningTests(unittest.TestCase):
     def test_learning_scores_are_bounded(self):
