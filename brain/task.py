@@ -36,6 +36,18 @@ def terms(text: str) -> list[str]:
     raw = re.findall(r"[A-Za-z0-9_.$/-]{2,}", text.lower())
     return [x for x in raw if x not in STOP]
 
+def validation_hints(query_terms: list[str]) -> list[dict[str, Any]]:
+    data = read_json(BRAIN / "validation-memory.json", {"term_test_scores": {}})
+    scores: dict[str, int] = {}
+    for token in query_terms:
+        for path, score in ((data.get("term_test_scores") or {}).get(token) or {}).items():
+            scores[path] = scores.get(path, 0) + int(score)
+    return [
+        {"path": path, "score": score}
+        for path, score in sorted(scores.items(), key=lambda x: (-x[1], x[0]))
+        if score != 0
+    ][:16]
+
 def learning_hints(query_terms: list[str]) -> dict[str, int]:
     data = read_json(LEARNING, {"term_file_scores": {}})
     scores: dict[str, int] = {}
@@ -300,6 +312,7 @@ def packet(name: str, task: str, limit: int = 12) -> dict[str, Any]:
         "files": r["files"],
         "impact": read_json(BRAIN / "impact.json", {}),
         "selected_tests": read_json(BRAIN / "selected-tests.json", {}),
+        "validated_test_hints": validation_hints(terms(task)),
     }
     target = BRAIN / "context" / f"{name}.json"
     write_json(target, out)
