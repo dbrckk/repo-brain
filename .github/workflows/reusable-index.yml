@@ -144,6 +144,13 @@ jobs:
           test -d .ai/brain/graph-shards
           test -s .ai/brain/architecture.mmd
 
+      - name: Apply automatic routing learning
+        shell: bash
+        run: |
+          python3 .repo-brain-tool/brain/auto_learning.py
+          test -s .ai/brain/auto-learning.json
+          test -s .ai/brain/routing-learning.json
+
       - name: Precompute v6 hotset and context packets
         shell: bash
         run: |
