@@ -39,6 +39,34 @@ class TaskTests(unittest.TestCase):
         self.assertEqual(budget["max_files"], 6)
         self.assertEqual(budget["expand_to"], 12)
 
+    def test_query_cache_pruning_keeps_fresh_routes(self):
+        with tempfile.TemporaryDirectory() as td:
+            old_cache = task.QUERY_CACHE
+            old_brain = task.BRAIN
+            task.BRAIN = Path(td)
+            task.QUERY_CACHE = Path(td) / "query-cache.json"
+            try:
+                # Seed a full legacy cache whose JSON key order is unrelated to recency.
+                legacy = {
+                    "schema_version": 1,
+                    "entries": {
+                        f"{i:064x}": {"task": f"legacy-{i}", "route": {"task": f"legacy-{i}"}}
+                        for i in range(128)
+                    },
+                }
+                task.QUERY_CACHE.write_text(json.dumps(legacy, sort_keys=True))
+                result = {"task": "fresh-route", "files": [], "budget": {}}
+                task.save_cached_route("fresh-route", result)
+
+                data = json.loads(task.QUERY_CACHE.read_text())
+                fp = task.task_fingerprint("fresh-route")
+                self.assertIn(fp, data["entries"])
+                self.assertEqual(data["order"][-1], fp)
+                self.assertLessEqual(len(data["entries"]), 128)
+            finally:
+                task.QUERY_CACHE = old_cache
+                task.BRAIN = old_brain
+
 class LearningTests(unittest.TestCase):
     def test_learning_scores_are_bounded(self):
         with tempfile.TemporaryDirectory() as td:
