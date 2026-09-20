@@ -144,17 +144,34 @@ def cached_route(task: str) -> dict[str, Any] | None:
     return None
 
 def save_cached_route(task: str, result: dict[str, Any]) -> None:
-    data = read_json(QUERY_CACHE, {"schema_version": 1, "entries": {}})
+    data = read_json(QUERY_CACHE, {"schema_version": 1, "entries": {}, "order": []})
     entries = dict(data.get("entries") or {})
     fp = task_fingerprint(task)
     stored = dict(result)
     stored.pop("cache", None)
     entries[fp] = {"task": task, "route": stored}
-    if len(entries) > 128:
-        entries = dict(list(entries.items())[-128:])
+
+    # JSON is written with sort_keys=True, so dict iteration order after reload is
+    # lexical hash order, not recency. Keep an explicit recency list so a fresh
+    # route cannot be pruned immediately just because its fingerprint sorts low.
+    previous_order = [
+        key for key in (data.get("order") or [])
+        if key in entries and key != fp
+    ]
+    known = set(previous_order)
+    legacy = [
+        key for key in entries
+        if key != fp and key not in known
+    ]
+    order = legacy + previous_order + [fp]
+    if len(order) > 128:
+        order = order[-128:]
+    entries = {key: entries[key] for key in order if key in entries}
+
     write_json(QUERY_CACHE, {
         "schema_version": 1,
-        "generated_by": "dbrckk/repo-brain-query-cache-v1",
+        "generated_by": "dbrckk/repo-brain-query-cache-v2",
+        "order": order,
         "entries": entries,
     })
 
