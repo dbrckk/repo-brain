@@ -38,7 +38,8 @@ def eligible(path: str) -> bool:
         return False
     return Path(path).suffix.lower() in {
         ".py",".kt",".kts",".java",".js",".jsx",".ts",".tsx",".go",".rs",".c",".cc",".cpp",
-        ".h",".hpp",".cs",".rb",".php",".swift",".scala",".sh",".yaml",".yml",".toml",".json",".xml"
+        ".h",".hpp",".cs",".rb",".php",".swift",".scala",".sh",".yaml",".yml",".toml",".json",".xml",
+        ".gd",".gdshader",".gdshaderinc",".tscn",".tres",".godot",
     }
 
 def symbols_by_file() -> dict[str, set[str]]:
